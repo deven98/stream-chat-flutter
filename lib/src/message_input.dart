@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
@@ -16,7 +15,7 @@ import 'package:stream_chat_flutter/src/user_avatar.dart';
 import '../stream_chat_flutter.dart';
 import 'stream_channel.dart';
 
-typedef FileUploader = Future<String> Function(File, Channel);
+typedef FileUploader = Future<String> Function(PlatformFile, Channel);
 typedef AttachmentThumbnailBuilder = Widget Function(
   BuildContext,
   _SendingAttachment,
@@ -578,8 +577,8 @@ class MessageInputState extends State<MessageInput> {
       case 'image':
       case 'giphy':
         return attachment.file != null
-            ? Image.file(
-                attachment.file,
+            ? Image.memory(
+                attachment.file.bytes,
                 fit: BoxFit.cover,
               )
             : Image.network(
@@ -711,7 +710,7 @@ class MessageInputState extends State<MessageInput> {
       _inputEnabled = false;
     });
 
-    File file;
+    PlatformFile file;
     String attachmentType;
 
     if (fileType == DefaultAttachmentTypes.image) {
@@ -729,7 +728,7 @@ class MessageInputState extends State<MessageInput> {
       } else if (fileType == DefaultAttachmentTypes.video) {
         pickedFile = await _imagePicker.getVideo(source: ImageSource.camera);
       }
-      file = File(pickedFile.path);
+      file = PlatformFile(path: pickedFile.path);
     } else {
       FileType type;
       if (fileType == DefaultAttachmentTypes.image) {
@@ -741,7 +740,7 @@ class MessageInputState extends State<MessageInput> {
       }
       final res = await FilePicker.platform.pickFiles(type: type);
       if (res?.files?.isNotEmpty == true) {
-        file = File(res.files.first.path);
+        file = res.files.single;
       }
     }
 
@@ -758,7 +757,7 @@ class MessageInputState extends State<MessageInput> {
     final attachment = _SendingAttachment(
       file: file,
       attachment: Attachment(
-        localUri: file.uri,
+        localUri: Uri.file(file.path),
         type: attachmentType,
       ),
     );
@@ -785,7 +784,7 @@ class MessageInputState extends State<MessageInput> {
   }
 
   Future<String> _uploadAttachment(
-    File file,
+    PlatformFile file,
     DefaultAttachmentTypes type,
     Channel channel,
   ) async {
@@ -806,9 +805,9 @@ class MessageInputState extends State<MessageInput> {
     return url;
   }
 
-  Future<String> _uploadImage(File file, Channel channel) async {
+  Future<String> _uploadImage(PlatformFile file, Channel channel) async {
     final filename = file.path.split('/').last;
-    final bytes = await file.readAsBytes();
+    final bytes = file.bytes;
     final res = await channel.sendImage(
       MultipartFile.fromBytes(
         bytes,
@@ -819,9 +818,9 @@ class MessageInputState extends State<MessageInput> {
     return res.file;
   }
 
-  Future<String> _uploadFile(File file, Channel channel) async {
+  Future<String> _uploadFile(PlatformFile file, Channel channel) async {
     final filename = file.path.split('/').last;
-    final bytes = await file.readAsBytes();
+    final bytes = file.bytes;
     final res = await channel.sendFile(
       MultipartFile.fromBytes(
         bytes,
@@ -1006,7 +1005,7 @@ class MessageInputState extends State<MessageInput> {
 }
 
 class _SendingAttachment {
-  File file;
+  PlatformFile file;
   Attachment attachment;
   bool uploaded;
 
